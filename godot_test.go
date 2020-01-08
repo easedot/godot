@@ -1,30 +1,25 @@
 package godot
 
 import (
+	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/francoispqt/gojay"
 	"github.com/go-redis/redis/v7"
+	jsoniter "github.com/json-iterator/go"
 )
 
-var queues =[]Queue{
-	{Name:"Work1",Weight:3},
-	{Name:"Work2",Weight:2},
-	{Name:"Work3",Weight:1},
+var queues = []Queue{
+	{Name: "Work1", Weight: 3},
+	{Name: "Work2", Weight: 2},
+	{Name: "Work3", Weight: 1},
+	{Name: "default", Weight: 1},
 }
 
-type testJob struct {
-	Name string
-	Execed bool
-}
-func (job *testJob) Run(){
-	job.Execed = true
-	fmt.Println(job.Name)
-	time.Sleep(time.Second)
-}
-
-func TestDot(t *testing.T){
+func TestDot(t *testing.T) {
 	client := redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379",
 		Password: "", // no password set
@@ -34,41 +29,153 @@ func TestDot(t *testing.T){
 	fmt.Println(pong, err)
 
 	t.Run("NewDot", func(t *testing.T) {
-		dots:= NewDot(10)
+		dots := NewDot(10)
 		//defer dots.WaitJob()
 
-		for i:=0; i<100; i++{
-			d:= testJob{
-				Name: fmt.Sprintf("Job:%d",i),
-				Execed:false,
-			}
+		for i := 0; i < 100; i++ {
+			d := NewTestJob(fmt.Sprintf("Job:%d", i))
 			//fmt.Println(d)
-			dots.Run(&d)
-			if want,got:=true,d.Execed;want==got{
-				t.Errorf("want %t got %t",want,got)
+			dots.Run(d)
+			if want, got := true, d.Execed; want == got {
+				t.Errorf("want %t got %t", want, got)
 			}
 		}
-		time.Sleep(60*time.Second)
+		time.Sleep(60 * time.Second)
 		dots.Shutdown()
 	})
-	t.Run("NewGoDot", func(t *testing.T) {
-		godot:=NewGoDot(client,queues)
-		//defer godot.WaitJob()
 
-		for i:=0; i<100; i++{
-			d:= testJob{
-				Name: fmt.Sprintf("Job:%d",i),
-				Execed:false,
-			}
+	t.Run("NewGoDot", func(t *testing.T) {
+		godot := NewGoDot(client, queues, 2)
+		defer godot.WaitJob()
+
+		for i := 0; i < 100; i++ {
+			d := NewTestJob(fmt.Sprintf("Job:%d", i))
 			//fmt.Println(d)
-			godot.Run(&d)
-			if want,got:=true,d.Execed;want==got{
-				t.Errorf("want %t got %t",want,got)
+			//d.RunAt(10,"test_at")
+			//godot.Run(&d)
+			godot.RunAt(d, 10, "test_at")
+			if want, got := true, d.Execed; want == got {
+				t.Errorf("want %t got %t", want, got)
 			}
 		}
-		time.Sleep(60*time.Second)
-		godot.Shutdown()
 
 	})
 
+}
+
+var (
+	genID = []struct {
+		name string
+		fun  func() string
+	}{
+		{"cryptoJid", generateJid},
+		{"googleUid", googleJid},
+		{"googleUid", googleJidV2},
+	}
+)
+
+func BenchmarkGenID(b *testing.B) {
+	fmt.Println(googleJid())
+	for _, f := range genID {
+		b.Run(f.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				f.fun()
+			}
+		})
+	}
+}
+
+var (
+	encodeJson = []struct {
+		name string
+		fun  func(string)
+	}{
+		{"decode", decodeJson},
+		{"unmarshal", unmarshalJson},
+		{"decode iter", decodeJsoniter},
+		{"unmarshal iter", unmarshalJsoniter},
+		{"unmarshal map", unmarshalJsonMap},
+		{"decode map", decodeJsonMap},
+	}
+)
+
+var jsonBlob = `[
+	{"Name": "Platypus", "Order": "Monotremata"},
+	{"Name": "Quoll",    "Order": "Dasyuromorphia"}
+]`
+var jsonOne = `
+	{"Name": "Quoll",    "Order": "Dasyuromorphia"}
+`
+
+type Animal struct {
+	Name  string
+	Order string
+}
+
+var animals Animal
+
+func BenchmarkDecodeJSON(b *testing.B) {
+
+	fmt.Println(googleJid())
+	for _, f := range encodeJson {
+		b.Run(f.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				f.fun(jsonOne)
+			}
+		})
+	}
+}
+
+func unmarshalJson(data string) {
+	err := json.Unmarshal([]byte(data), &animals)
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+}
+
+func decodeJson(data string) {
+	dec := json.NewDecoder(strings.NewReader(data))
+	dec.Decode(&animals)
+
+}
+func unmarshalJsoniter(data string) {
+	err := jsoniter.Unmarshal([]byte(data), &animals)
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+}
+
+func decodeJsoniter(data string) {
+	dec := jsoniter.NewDecoder(strings.NewReader(data))
+	dec.Decode(&animals)
+
+}
+
+func unmarshalJsonJay(data string) {
+	err := gojay.Unmarshal([]byte(data), &animals)
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+}
+
+func decodeJsonJay(data string) {
+	dec := gojay.NewDecoder(strings.NewReader(data))
+	dec.Decode(&animals)
+}
+
+func unmarshalJsonMap(data string) {
+	var amap map[string]interface{}
+	err := jsoniter.Unmarshal([]byte(data), &amap)
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+}
+
+func decodeJsonMap(data string) {
+	var amap map[string]interface{}
+	dec := jsoniter.NewDecoder(strings.NewReader(data))
+	err := dec.Decode(&amap)
+	if err != nil {
+		fmt.Println("error:", err)
+	}
 }
