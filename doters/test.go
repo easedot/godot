@@ -1,23 +1,34 @@
-package doters
+package godot
 
 import (
 	"fmt"
-	"github.com/easedot/godot"
 	"time"
+
+	"github.com/easedot/godot"
 )
+
+//func init() {
+//	doter := testDoter{
+//		Doter: godot.Doter{Queue: "Work1", Retry: false, RetryCount: 5},
+//	}
+//	godot.Register1(doter)
+//}
 
 type testDoter struct {
 	godot.Doter
+	Name string
 }
 
-func init() {
-	doter := testDoter{
+func NewTestJob(name string) *testDoter {
+	d := testDoter{
 		Doter: godot.Doter{Queue: "Work1", Retry: false, RetryCount: 5},
+		Name:  name,
 	}
-	godot.Register("testDoter", doter)
+	return &d
 }
 
-func (d *testDoter) Run(args ...interface{}) {
+func (d testDoter) Run(args ...interface{}) error {
 	fmt.Println("testJob")
 	time.Sleep(time.Second)
+	return nil
 }

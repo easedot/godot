@@ -19,6 +19,25 @@ var queues = []Queue{
 	{Name: "default", Weight: 1},
 }
 
+type testDoter struct {
+	Doter
+	Name string
+}
+
+func NewTestJob(name string) *testDoter {
+	d := testDoter{
+		Doter: Doter{Queue: "Work1", Retry: false, RetryCount: 5},
+		Name:  name,
+	}
+	return &d
+}
+
+func (d testDoter) Run(args ...interface{}) error {
+	fmt.Println("testJob", args)
+	time.Sleep(time.Second)
+	return fmt.Errorf("xxx error")
+}
+
 func TestDot(t *testing.T) {
 	client := redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379",
@@ -33,30 +52,31 @@ func TestDot(t *testing.T) {
 		//defer dots.WaitJob()
 
 		for i := 0; i < 100; i++ {
-			d := NewTestJob(fmt.Sprintf("Job:%d", i))
+			//d := NewTestJob(fmt.Sprintf("Job:%d", i))
 			//fmt.Println(d)
-			dots.Run(d)
-			if want, got := true, d.Execed; want == got {
-				t.Errorf("want %t got %t", want, got)
-			}
+			//dots.Run(d)
+			//if want, got := true, d.Execed; want == got {
+			//	t.Errorf("want %t got %t", want, got)
+			//}
 		}
-		time.Sleep(60 * time.Second)
+		time.Sleep(20 * time.Second)
 		dots.Shutdown()
 	})
 
 	t.Run("NewGoDot", func(t *testing.T) {
-		godot := NewGoDot(client, queues, 2)
+		godot := NewGoDot(client, queues, 10)
 		defer godot.WaitJob()
 
+		d := NewTestJob(fmt.Sprintf("Job:%d", 1))
+		a := time.Now().Add(10 * time.Second).Unix()
 		for i := 0; i < 100; i++ {
-			d := NewTestJob(fmt.Sprintf("Job:%d", i))
 			//fmt.Println(d)
 			//d.RunAt(10,"test_at")
-			//godot.Run(&d)
-			godot.RunAt(d, 10, "test_at")
-			if want, got := true, d.Execed; want == got {
-				t.Errorf("want %t got %t", want, got)
-			}
+			//godot.Run(d, "test", i)
+			godot.RunAt(a, d, "test_at")
+			//if want, got := true, d.Execed; want == got {
+			//	t.Errorf("want %t got %t", want, got)
+			//}
 		}
 
 	})

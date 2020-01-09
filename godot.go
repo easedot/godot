@@ -19,7 +19,7 @@ import (
 
 var (
 	fetchTimeout = 2 * time.Second
-	pollInterval = 10
+	pollInterval = 2
 )
 
 type EnqueueData struct {
@@ -34,12 +34,13 @@ type EnqueueData struct {
 
 type EnqueueOption struct {
 	RetryCount int  `json:"retry_count,omitempty"`
-	Retry      bool `json:"retry,omitempty"`
+	Retry      bool `json:"error,omitempty"`
 	At         int  `json:"at,omitempty"`
 }
 
 type Dot struct {
-	jobs    chan Task
+	error   chan string
+	dots    chan string
 	wg      sync.WaitGroup
 	maxDots int
 }
@@ -51,12 +52,30 @@ func NewDot(maxDots int) *Dot {
 }
 
 func (d *Dot) InitDots() {
-	d.jobs = make(chan Task, d.maxDots)
+	//d.dots = make(chan Task, d.maxDots)
+	//无缓冲通道安全，没有响应的阻塞不会丢失
+	d.dots = make(chan string)
+	d.error = make(chan string)
 	d.wg.Add(d.maxDots)
 	for i := 0; i < d.maxDots; i++ {
 		go func() {
-			for job := range d.jobs {
-				job.Run()
+			for job := range d.dots {
+				jobData := EnqueueData{}
+				err := jsoniter.Unmarshal([]byte(job), &jobData)
+				if err != nil {
+					log.Println(err)
+				}
+				//fmt.Println("Pop work:", jobData)
+				doter, exists := doters[jobData.Class]
+				if !exists {
+					doter = doters["defaultDoter"]
+				}
+
+				err = doter.Run(jobData.Args)
+				if err != nil {
+					log.Println("Exec job error", err)
+					d.error <- job
+				}
 			}
 			d.wg.Done()
 		}()
@@ -64,11 +83,11 @@ func (d *Dot) InitDots() {
 }
 
 func (d *Dot) Run(job Task) {
-	d.jobs <- job
+	//d.dots <- job
 }
 
 func (d *Dot) Shutdown() {
-	close(d.jobs)
+	close(d.dots)
 	//close chan wil stop testJob for each
 	//wait all testJob done then shutdown
 	d.wg.Wait()
@@ -84,7 +103,13 @@ func NewRedisDot(maxDots int, client *redis.Client) *RedisDot {
 	dot := RedisDot{redis: client, Dot: d}
 	return &dot
 }
-
+func (r *RedisDot) ZAdd(score float64, key string, values interface{}) {
+	value := redis.Z{Score: score, Member: values}
+	err := r.redis.ZAdd(key, &value).Err()
+	if err != nil {
+		panic(err)
+	}
+}
 func (r *RedisDot) Push(key string, values interface{}) {
 	log.Println("Push to redis", key, values)
 	v, err := r.redis.LPush(key, values).Result()
@@ -132,18 +157,14 @@ func (q *QueueDot) FetchJob() {
 	go func() {
 		for {
 			queue := q.queueWeight()
-			log.Printf("Queue list %v", queue)
+			//log.Println("Queue list:", queue)
 			job, _ := q.redis.BRPop(fetchTimeout, queue...).Result()
-			log.Println("Pop from redis ", job)
-			jobData := EnqueueData{}
+			//log.Println("Pop from redis ", job)
 			if len(job) > 1 {
-				err := jsoniter.Unmarshal([]byte(job[1]), &jobData)
-				if err != nil {
-					log.Println(err)
-				}
-				fmt.Println("Pop work:", jobData)
+				q.dots <- job[1]
+			} else {
+				log.Println("Wait job to run...")
 			}
-			//q.doters<-q
 		}
 	}()
 }
@@ -214,19 +235,13 @@ func (s *ScheduleDot) fetchOnce() {
 	if err != nil {
 		log.Println(err)
 	}
-
+	log.Println("Fetch queue:", s.queue.Name, "Job:", jobs)
 	for _, job := range jobs {
 		log.Println(job)
 		//if not ticker
-		//s.redis.ZRem(s.queue.Name,job)
-
+		s.redis.ZRem(s.queue.Name, job)
+		s.dots <- job
 	}
-	//s.doters<-s
-}
-
-func NowTimeStamp() string {
-	now := fmt.Sprintf("%d", time.Now().UnixNano())
-	return now
 }
 
 type GoDot struct {
@@ -236,14 +251,16 @@ type GoDot struct {
 }
 
 func NewGoDot(client *redis.Client, queues []Queue, maxDots int) *GoDot {
+	queueDot := NewQueueDot(queues, client, maxDots)
+	queueDot.FetchJob()
+
 	retryDot := NewScheduleDot("retry", client)
+	retryDot.Dot = queueDot.Dot
 	retryDot.FetchJob()
 
 	schedule := NewScheduleDot("schedule", client)
+	schedule.Dot = queueDot.Dot
 	schedule.FetchJob()
-
-	queueDot := NewQueueDot(queues, client, maxDots)
-	queueDot.FetchJob()
 
 	godot := GoDot{
 		queueDot:    queueDot,
@@ -254,6 +271,14 @@ func NewGoDot(client *redis.Client, queues []Queue, maxDots int) *GoDot {
 }
 
 func (d *GoDot) WaitJob() {
+	go func() {
+		for job := range d.queueDot.error {
+			log.Println("Retry job add:", job)
+			at := time.Now().Add(10 * time.Second).Unix()
+			d.retryDot.ZAdd(float64(at), d.retryDot.queue.Name, job)
+		}
+	}()
+
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 	select {
@@ -265,30 +290,70 @@ func (d *GoDot) WaitJob() {
 	}
 }
 
-func (d *GoDot) RunAt(job interface{}, at int, args ...interface{}) {
-	obj := reflect.Indirect(reflect.ValueOf(job))
-	typ := obj.Type()
-	jobName := typ.Name()
+func (d *GoDot) Run(job Task, args ...interface{}) {
+	dotName := getStructName(job)
+	Register(dotName, job)
 	jobID := googleJid()
 
-	jobData, err := jsoniter.Marshal(job)
-	if err != nil {
-		log.Println(err)
-	}
-	var jobmap map[string]interface{}
-	err = jsoniter.Unmarshal(jobData, &jobmap)
-	if err != nil {
-		log.Println(err)
+	queueName := "default"
+	runData := EnqueueData{
+		Queue:      queueName,
+		Class:      dotName,
+		Args:       args,
+		Jid:        jobID,
+		EnqueuedAt: NowTimeStamp(),
 	}
 
-	queueName := "default"
-	if jobmap["queue"] != "" {
-		queueName = fmt.Sprintf("%v", jobmap["Queue"])
+	enqueue, err := jsoniter.Marshal(runData)
+	//fmt.Println(string(enqueue))
+	if err != nil {
+		log.Println("Enqueue json marshal error:", err)
 	}
+	d.queueDot.Push(queueName, string(enqueue))
+
+}
+func (d *GoDot) RunAt(at int64, job Task, args ...interface{}) {
+	dotName := getStructName(job)
+	Register(dotName, job)
+	jobID := googleJid()
+
+	queueName := d.scheduleDot.queue.Name
+	runData := EnqueueData{
+		Queue:      queueName,
+		Class:      dotName,
+		Args:       args,
+		Jid:        jobID,
+		EnqueuedAt: NowTimeStamp(),
+	}
+
+	enqueue, err := jsoniter.Marshal(runData)
+	//fmt.Println(string(enqueue))
+	if err != nil {
+		log.Println("Enqueue json marshal error:", err)
+	}
+	fat := float64(at)
+	d.scheduleDot.ZAdd(fat, queueName, string(enqueue))
+}
+func (d *GoDot) Run1(dotName string, at int, args ...interface{}) {
+	jobID := googleJid()
+
+	//jobData, err := jsoniter.Marshal(job)
+	//if err != nil {
+	//	log.Println(err)
+	//}
+	//var jobmap map[string]interface{}
+	//err = jsoniter.Unmarshal(jobData, &jobmap)
+	//if err != nil {
+	//	log.Println(err)
+	//}
+
+	queueName := "default"
+	//if jobmap["queue"] != "" {
+	//	queueName = fmt.Sprintf("%v", jobmap["Queue"])
+	//}
 	runData := EnqueueData{
 		Queue:         queueName,
-		Data:          job,
-		Class:         jobName,
+		Class:         dotName,
 		Args:          args,
 		Jid:           jobID,
 		EnqueuedAt:    NowTimeStamp(),
@@ -296,11 +361,23 @@ func (d *GoDot) RunAt(job interface{}, at int, args ...interface{}) {
 	}
 
 	enqueue, err := jsoniter.Marshal(runData)
-	fmt.Println(string(enqueue))
+	//fmt.Println(string(enqueue))
 	if err != nil {
 		log.Println("Enqueue json marshal error:", err)
 	}
 	d.queueDot.Push(queueName, string(enqueue))
+}
+
+func NowTimeStamp() string {
+	now := fmt.Sprintf("%d", time.Now().Unix())
+	return now
+}
+
+func getStructName(in interface{}) string {
+	obj := reflect.Indirect(reflect.ValueOf(in))
+	typ := obj.Type()
+	jobName := typ.Name()
+	return jobName
 }
 
 func generateJid() string {
