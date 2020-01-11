@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"math/rand"
 	"os"
 	"os/signal"
@@ -39,7 +40,7 @@ type EnqueueOption struct {
 }
 
 type Dot struct {
-	error   chan string
+	error   chan EnqueueData
 	dots    chan string
 	wg      sync.WaitGroup
 	maxDots int
@@ -55,7 +56,7 @@ func (d *Dot) InitDots() {
 	//d.dots = make(chan Task, d.maxDots)
 	//无缓冲通道安全，没有响应的阻塞不会丢失
 	d.dots = make(chan string)
-	d.error = make(chan string)
+	d.error = make(chan EnqueueData)
 	d.wg.Add(d.maxDots)
 	for i := 0; i < d.maxDots; i++ {
 		go func() {
@@ -74,7 +75,7 @@ func (d *Dot) InitDots() {
 				err = doter.Run(jobData.Args)
 				if err != nil {
 					log.Println("Exec job error", err)
-					d.error <- job
+					d.error <- jobData
 				}
 			}
 			d.wg.Done()
@@ -93,6 +94,12 @@ func (d *Dot) Shutdown() {
 	d.wg.Wait()
 }
 
+type cache interface {
+	ZAdd(score float64, key string, values interface{})
+	Push(key string, values interface{})
+	BulkPush(key string, values []interface{})
+}
+
 type RedisDot struct {
 	redis *redis.Client
 	*Dot
@@ -103,6 +110,7 @@ func NewRedisDot(maxDots int, client *redis.Client) *RedisDot {
 	dot := RedisDot{redis: client, Dot: d}
 	return &dot
 }
+
 func (r *RedisDot) ZAdd(score float64, key string, values interface{}) {
 	value := redis.Z{Score: score, Member: values}
 	err := r.redis.ZAdd(key, &value).Err()
@@ -196,7 +204,7 @@ type ScheduleDot struct {
 
 func NewScheduleDot(queueName string, client *redis.Client) *ScheduleDot {
 	q := Queue{queueName, 1}
-	rd := NewRedisDot(1, client)
+	rd := NewRedisDot(0, client)
 	sd := ScheduleDot{rd, q}
 	return &sd
 }
@@ -274,8 +282,16 @@ func (d *GoDot) WaitJob() {
 	go func() {
 		for job := range d.queueDot.error {
 			log.Println("Retry job add:", job)
-			at := time.Now().Add(10 * time.Second).Unix()
-			d.retryDot.ZAdd(float64(at), d.retryDot.queue.Name, job)
+			if job.Retry {
+				job.RetryCount += 1
+				//(count * *4) + 15 + (rand(30) * (count + 1))
+				retrySpan := d.calcRetryTime(job.RetryCount)
+				at := time.Now().Add(time.Duration(retrySpan) * time.Second).Unix()
+				enqueue, _ := jsoniter.Marshal(job)
+				fmt.Println("Retry count:", job.RetryCount, "data", enqueue)
+				d.retryDot.ZAdd(float64(at), d.retryDot.queue.Name, string(enqueue))
+
+			}
 		}
 	}()
 
@@ -288,6 +304,11 @@ func (d *GoDot) WaitJob() {
 		d.retryDot.Shutdown()
 		d.scheduleDot.Shutdown()
 	}
+}
+
+func (d *GoDot) calcRetryTime(count int) int {
+	span := int(math.Pow(float64(count), 4)) + 15 + (rand.Intn(30) * (count + 1))
+	return span
 }
 
 func (d *GoDot) Run(job Task, args ...interface{}) {
@@ -334,7 +355,7 @@ func (d *GoDot) RunAt(at int64, job Task, args ...interface{}) {
 	fat := float64(at)
 	d.scheduleDot.ZAdd(fat, queueName, string(enqueue))
 }
-func (d *GoDot) Run1(dotName string, at int, args ...interface{}) {
+func (d *GoDot) RunByName(dotName string, at int, args ...interface{}) {
 	jobID := googleJid()
 
 	//jobData, err := jsoniter.Marshal(job)
