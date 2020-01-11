@@ -24,12 +24,11 @@ var (
 )
 
 type EnqueueData struct {
-	Queue      string      `json:"queue,omitempty"`
-	Class      string      `json:"class"`
-	Data       interface{} `json:"data"`
-	Args       interface{} `json:"args"`
-	Jid        string      `json:"jid"`
-	EnqueuedAt string      `json:"enqueued_at"`
+	Queue      string        `json:"queue,omitempty"`
+	Class      string        `json:"class"`
+	Args       []interface{} `json:"args"`
+	Jid        string        `json:"jid"`
+	EnqueuedAt string        `json:"enqueued_at"`
 	EnqueueOption
 }
 
@@ -72,7 +71,7 @@ func (d *Dot) InitDots() {
 					doter = doters["defaultDoter"]
 				}
 
-				err = doter.Run(jobData.Args)
+				err = doter.Run(jobData.Args...)
 				if err != nil {
 					log.Println("Exec job error", err)
 					d.error <- jobData
@@ -311,9 +310,29 @@ func (d *GoDot) calcRetryTime(count int) int {
 	return span
 }
 
-func (d *GoDot) Run(job Task, args ...interface{}) {
+func (d *GoDot) Run(className string, args ...interface{}) {
+	doter, exists := doters[className]
+	if !exists {
+		log.Println("Not find type registed", doter)
+	}
+	option := options[className]
+	runData := EnqueueData{
+		Queue:      option.Queue,
+		Class:      className,
+		Args:       args,
+		Jid:        generateJid(),
+		EnqueuedAt: NowTimeStamp(),
+	}
+	enqueue, err := jsoniter.Marshal(runData)
+	if err != nil {
+		log.Println("Enqueue json marshal error:", err)
+	}
+	d.queueDot.Push(option.Queue, string(enqueue))
+
+}
+func (d *GoDot) Run2(job Task, args ...interface{}) {
 	dotName := getStructName(job)
-	Register(dotName, job)
+	//Register(dotName, job)
 	jobID := googleJid()
 
 	queueName := "default"
@@ -335,7 +354,7 @@ func (d *GoDot) Run(job Task, args ...interface{}) {
 }
 func (d *GoDot) RunAt(at int64, job Task, args ...interface{}) {
 	dotName := getStructName(job)
-	Register(dotName, job)
+	//Register(dotName, job)
 	jobID := googleJid()
 
 	queueName := d.scheduleDot.queue.Name
@@ -355,7 +374,8 @@ func (d *GoDot) RunAt(at int64, job Task, args ...interface{}) {
 	fat := float64(at)
 	d.scheduleDot.ZAdd(fat, queueName, string(enqueue))
 }
-func (d *GoDot) RunByName(dotName string, at int, args ...interface{}) {
+
+func (d *GoDot) Run1(dotName string, at int, args ...interface{}) {
 	jobID := googleJid()
 
 	//jobData, err := jsoniter.Marshal(job)

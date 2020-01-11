@@ -5,6 +5,7 @@ import (
 )
 
 var doters = make(map[string]Task)
+var options = make(map[string]Doter)
 
 type Task interface {
 	Run(args ...interface{}) error
@@ -16,19 +17,18 @@ type Queue struct {
 }
 
 type Doter struct {
+	Dot        *GoDot
 	Queue      string
 	Retry      bool
 	RetryCount int
 }
 
-func Register(dotType string, task Task) {
-	if _, exists := doters[dotType]; exists {
-		log.Println(dotType, "Dot already registered")
-	}
-	log.Println("Register", dotType, "task")
-	doters[dotType] = task
+func (dt *Doter) Run(args ...interface{}) {
+	name := getStructName(dt)
+	dt.Dot.Run(name, args)
 }
-func Register1(task Task) {
+
+func Register(task Task, option Doter) {
 	dotType := getStructName(task)
 
 	if _, exists := doters[dotType]; exists {
@@ -36,4 +36,14 @@ func Register1(task Task) {
 	}
 	log.Println("Register", dotType, "task")
 	doters[dotType] = task
+	options[dotType] = option
+}
+
+func RegisterByName(taskName string, task Task, option Doter) {
+	if _, exists := doters[taskName]; exists {
+		log.Println(taskName, "Dot already registered")
+	}
+	log.Println("Register", taskName, "task")
+	doters[taskName] = task
+	options[taskName] = option
 }

@@ -47,33 +47,17 @@ func TestDot(t *testing.T) {
 	pong, err := client.Ping().Result()
 	fmt.Println(pong, err)
 
-	t.Run("NewDot", func(t *testing.T) {
-		dots := NewDot(10)
-		//defer dots.WaitJob()
-
-		for i := 0; i < 100; i++ {
-			//d := NewTestJob(fmt.Sprintf("Job:%d", i))
-			//fmt.Println(d)
-			//dots.Run(d)
-			//if want, got := true, d.Execed; want == got {
-			//	t.Errorf("want %t got %t", want, got)
-			//}
-		}
-		time.Sleep(20 * time.Second)
-		dots.Shutdown()
-	})
-
 	t.Run("NewGoDot", func(t *testing.T) {
 		godot := NewGoDot(client, queues, 10)
 		defer godot.WaitJob()
 
-		d := NewTestJob(fmt.Sprintf("Job:%d", 1))
-		a := time.Now().Add(10 * time.Second).Unix()
+		//d := NewTestJob(fmt.Sprintf("Job:%d", 1))
+		//a := time.Now().Add(10 * time.Second).Unix()
 		for i := 0; i < 100; i++ {
 			//fmt.Println(d)
 			//d.RunAt(10,"test_at")
 			//godot.Run(d, "test", i)
-			godot.RunAt(a, d, "test_at")
+			godot.Run("defaultDoter", "test_at")
 			//if want, got := true, d.Execed; want == got {
 			//	t.Errorf("want %t got %t", want, got)
 			//}
