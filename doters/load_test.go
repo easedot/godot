@@ -38,7 +38,7 @@ func TestLoad(t *testing.T) {
 	defer gt.WaitJob()
 	t.Run("LoadDot", func(t *testing.T) {
 		for i, task := range waits {
-			gt.Run(TestJob, fmt.Sprintf("task index:%d task:%d", i, task), "xxx")
+			gt.Run(TestJob, fmt.Sprintf("task index:%d task:%d", i, task), i)
 		}
 		gt.WaitJob()
 		for i, task := range waits {
@@ -56,7 +56,7 @@ var (
 	}{
 		{"runByName",
 			func(i ...interface{}) error {
-				gt.Run(TestJob, fmt.Sprintf("task index:%d", i), "xxx")
+				gt.Run(TestJob, fmt.Sprintf("task index:%d", i), i)
 				return nil
 			},
 		},
