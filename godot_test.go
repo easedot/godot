@@ -35,7 +35,7 @@ func NewTestJob(name string) *testDoter {
 func (d testDoter) Run(args ...interface{}) error {
 	fmt.Println("testJob", args)
 	time.Sleep(time.Second)
-	return fmt.Errorf("xxx error")
+	return fmt.Errorf("xxx retryJob")
 }
 
 func TestDot(t *testing.T) {
@@ -133,7 +133,7 @@ func BenchmarkDecodeJSON(b *testing.B) {
 func unmarshalJson(data string) {
 	err := json.Unmarshal([]byte(data), &animals)
 	if err != nil {
-		fmt.Println("error:", err)
+		fmt.Println("retryJob:", err)
 	}
 }
 
@@ -145,7 +145,7 @@ func decodeJson(data string) {
 func unmarshalJsoniter(data string) {
 	err := jsoniter.Unmarshal([]byte(data), &animals)
 	if err != nil {
-		fmt.Println("error:", err)
+		fmt.Println("retryJob:", err)
 	}
 }
 
@@ -158,7 +158,7 @@ func decodeJsoniter(data string) {
 func unmarshalJsonJay(data string) {
 	err := gojay.Unmarshal([]byte(data), &animals)
 	if err != nil {
-		fmt.Println("error:", err)
+		fmt.Println("retryJob:", err)
 	}
 }
 
@@ -171,7 +171,7 @@ func unmarshalJsonMap(data string) {
 	var amap map[string]interface{}
 	err := jsoniter.Unmarshal([]byte(data), &amap)
 	if err != nil {
-		fmt.Println("error:", err)
+		fmt.Println("retryJob:", err)
 	}
 }
 
@@ -180,6 +180,6 @@ func decodeJsonMap(data string) {
 	dec := jsoniter.NewDecoder(strings.NewReader(data))
 	err := dec.Decode(&amap)
 	if err != nil {
-		fmt.Println("error:", err)
+		fmt.Println("retryJob:", err)
 	}
 }

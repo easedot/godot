@@ -2,7 +2,10 @@ package load
 
 import (
 	"fmt"
+	"log"
+	"runtime"
 	"testing"
+	"time"
 
 	"github.com/go-redis/redis/v7"
 
@@ -15,7 +18,6 @@ var queues = []godot.Queue{
 	{Name: "Work3", Weight: 1},
 	{Name: "default", Weight: 1},
 }
-var waits = make(map[int]int)
 
 var client = redis.NewClient(&redis.Options{
 	Addr:     "localhost:6379",
@@ -26,25 +28,34 @@ var client = redis.NewClient(&redis.Options{
 var gt *godot.GoDot
 
 func init() {
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 2; i++ {
 		waits[i] = 0
 	}
 	pong, err := client.Ping().Result()
 	fmt.Println(pong, err)
-	gt = godot.NewGoDot(client, queues, 10)
+	gt = godot.NewGoDot(client, queues, 100)
 
 }
 func TestLoad(t *testing.T) {
-	defer gt.WaitJob()
 	t.Run("LoadDot", func(t *testing.T) {
 		for i, task := range waits {
-			gt.Run(TestJob, fmt.Sprintf("task index:%d task:%d", i, task), i)
+			gt.Run(TestJob, i, fmt.Sprintf("task index:%d task:%d", i, task), i)
 		}
-		gt.WaitJob()
+		time.Sleep(1 * time.Minute)
+		//gt.WaitJob()
+		//gt.WaitIdl()
+		//gt.Shutdown()
 		for i, task := range waits {
-			if i != task {
-				t.Error("Task exec error index:", i)
+			if (i % 2) == 1 {
+				if task != 2 {
+					t.Error("Task exec error index:", i, " value:", task)
+				}
+			} else {
+				if task != 1 {
+					t.Error("Task exec error index:", i, " value:", task)
+				}
 			}
+
 		}
 	})
 }
@@ -52,24 +63,25 @@ func TestLoad(t *testing.T) {
 var (
 	runTask = []struct {
 		name string
-		fun  func(...interface{}) error
+		fun  func() error
 	}{
-		{"runByName",
-			func(i ...interface{}) error {
-				gt.Run(TestJob, fmt.Sprintf("task index:%d", i), i)
-				return nil
-			},
-		},
+		{"runByName", load},
 	}
 )
 
+func load() error {
+	//index := args[0]
+	log.Println("xxx")
+	//gt.Run(TestJob, index, fmt.Sprintf("task index:%d ", index), index)
+	return nil
+}
 func BenchmarkLoad(b *testing.B) {
-	for _, f := range runTask {
-		b.Run(f.name, func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				f.fun(i)
-			}
-			gt.WaitJob()
-		})
+	fmt.Println("NumCPU:", runtime.NumCPU())
+	//runtime.GOMAXPROCS(runtime.NumCPU())
+	for i := 1; i < 100; i++ {
+		gt.Run(TestJob, i, fmt.Sprintf("task index:%d ", i), i)
 	}
+	gt.WaitIdl()
+	gt.Shutdown()
+	time.Sleep(30 * time.Second)
 }
