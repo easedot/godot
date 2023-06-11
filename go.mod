@@ -1,6 +1,6 @@
 module github.com/easedot/godot
 
-go 1.20
+go 1.19
 
 require (
 	github.com/francoispqt/gojay v1.2.13
