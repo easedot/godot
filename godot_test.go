@@ -49,19 +49,20 @@ func TestDot(t *testing.T) {
 
 	t.Run("NewGoDot", func(t *testing.T) {
 		godot := NewGoDot(client, queues, 10)
-		defer godot.WaitJob()
 
+		gdc := NewGoDotCli(client)
 		//d := NewTestJob(fmt.Sprintf("Job:%d", 1))
 		//a := time.Now().Add(10 * time.Second).Unix()
 		for i := 0; i < 100; i++ {
 			//fmt.Println(d)
 			//d.RunAt(10,"test_at")
 			//godot.Run(d, "test", i)
-			godot.Run("defaultDoter", "test_at")
+			gdc.Run("defaultDoter", "test_at")
 			//if want, got := true, d.Execed; want == got {
 			//	t.Errorf("want %t got %t", want, got)
 			//}
 		}
+		defer godot.WaitJob()
 
 	})
 

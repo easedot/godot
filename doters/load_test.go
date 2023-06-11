@@ -38,21 +38,21 @@ func init() {
 }
 func TestLoad(t *testing.T) {
 	t.Run("LoadDot", func(t *testing.T) {
-		for i, task := range waits {
-			gt.Run(TestJob, i, fmt.Sprintf("task index:%d task:%d", i, task), i)
+		for i, v := range waits {
+			gt.Run(TestJob, i, v)
 		}
 		time.Sleep(1 * time.Minute)
 		//gt.WaitJob()
 		//gt.WaitIdl()
 		//gt.Shutdown()
-		for i, task := range waits {
+		for i, v := range waits {
 			if (i % 2) == 1 {
-				if task != 2 {
-					t.Error("Task exec error index:", i, " value:", task)
+				if v != 2 {
+					t.Error("Task exec error index:", i, " value:", v)
 				}
 			} else {
-				if task != 1 {
-					t.Error("Task exec error index:", i, " value:", task)
+				if v != 1 {
+					t.Error("Task exec error index:", i, " value:", v)
 				}
 			}
 

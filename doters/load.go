@@ -19,7 +19,11 @@ func init() {
 		RetryCount: 2,
 	}
 	doter := testDoter{options}
+
+	//this register use reflect gen name
 	//godot.Register(doter, options)
+
+	//this register use const name
 	godot.RegisterByName(TestJob, doter, options)
 }
 
@@ -28,14 +32,13 @@ type testDoter struct {
 }
 
 func (d testDoter) Run(args ...interface{}) error {
-	log.Println("Run job begin args:", args)
+	log.Println("[TestDoter] Run job args:", args)
 	index := int(args[0].(float64))
 
 	waits[index] += 1
 	time.Sleep(time.Second)
-	log.Println("Run job end args:", args)
 	if (index % 2) == 1 {
-		return fmt.Errorf("run job raise error for retry")
+		return fmt.Errorf("[TestDoter] raise error for retry")
 	}
 	return nil
 }

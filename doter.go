@@ -27,18 +27,18 @@ func Register(task Task, option Doter) {
 	dotType := getStructName(task)
 
 	if _, exists := doters[dotType]; exists {
-		log.Println(dotType, "Dot already registered")
+		log.Printf("Worker name [%s] already registered\n", dotType)
 	}
-	log.Println("Register", dotType, "task")
+	log.Printf("Register [%s] task \n", dotType)
 	doters[dotType] = task
 	options[dotType] = option
 }
 
 func RegisterByName(taskName string, task Task, option Doter) {
 	if _, exists := doters[taskName]; exists {
-		log.Println(taskName, "Dot already registered")
+		log.Printf("Worker name [%s] already registered\n", taskName)
 	}
-	log.Println("Register", taskName, "task")
+	log.Printf("Register [%s] task \n", taskName)
 	doters[taskName] = task
 	options[taskName] = option
 }
@@ -63,6 +63,22 @@ type DotData struct {
 	DotDataOption
 }
 
+func NewDotData(className string) (*DotData, error) {
+	_, exists := doters[className]
+	if !exists {
+		log.Println()
+		return nil, fmt.Errorf("not find %s registed", className)
+	}
+	option := options[className]
+	runData := DotData{
+		Queue:      option.Queue,
+		Class:      className,
+		Jid:        generateJid(),
+		EnqueuedAt: NowTimeStamp(),
+	}
+	return &runData, nil
+}
+
 type DotDataOption struct {
 	RetryCount int   `json:"retry_count,omitempty"`
 	Retry      bool  `json:"retryJob,omitempty"`
@@ -81,23 +97,4 @@ func (d *DotData) calcRetryTime(count int) int {
 	//span := int(math.Pow(float64(count), 4)) + 15 + (rand.Intn(30) * (count + 1))
 	span := 30 //int(math.Pow(float64(count), 2)) + 5
 	return span
-}
-func NewDotData(className string) (*DotData, error) {
-	_, exists := doters[className]
-	if !exists {
-		log.Println()
-		return nil, fmt.Errorf("not find %s registed", className)
-	}
-	option := options[className]
-	runData := DotData{
-		Queue:      option.Queue,
-		Class:      className,
-		Jid:        generateJid(),
-		EnqueuedAt: NowTimeStamp(),
-		//DotDataOption: DotDataOption{
-		//	RetryCount: option.RetryCount,
-		//	Retry:      option.Retry,
-		//},
-	}
-	return &runData, nil
 }

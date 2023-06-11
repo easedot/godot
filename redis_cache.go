@@ -39,7 +39,7 @@ func (r *RedisCache) BulkPush(key string, values []interface{}) {
 
 }
 func (r *RedisCache) BlockPop(queue ...string) (string, error) {
-	job, err := r.redis.BRPop(fetchTimeout, queue...).Result()
+	job, err := r.redis.BRPop(FetchTimeout, queue...).Result()
 	if err != nil {
 		return "", err
 	} else {
