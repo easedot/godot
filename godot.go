@@ -1,6 +1,7 @@
 package godot
 
 import (
+	"context"
 	"log"
 	"math/rand"
 	"os"
@@ -8,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-redis/redis/v7"
 	jsoniter "github.com/json-iterator/go"
+	"github.com/redis/go-redis/v9"
 )
 
 const ScheduleQueue = "schedule"
@@ -34,7 +35,7 @@ func NewDot(maxDots int) *Dot {
 	return &dot
 }
 
-func (d *Dot) WaitJob(jobChan chan string, retry *ScheduleJob) {
+func (d *Dot) WaitJob(ctx context.Context, jobChan chan string, retry *ScheduleJob) {
 	//d.jobs = make(chan Task, d.maxDots)
 	//无缓冲通道安全，没有响应的阻塞不会丢失
 	d.jobs = jobChan //make(chan string)
@@ -45,14 +46,14 @@ func (d *Dot) WaitJob(jobChan chan string, retry *ScheduleJob) {
 		go func(i int) {
 			for job := range d.jobs {
 				log.Printf("DOT[%d] Process job...\n", i)
-				d.processWorker(job)
+				d.processWorker(ctx, job)
 			}
 			defer d.wg.Done()
 		}(i)
 	}
 }
 
-func (d *Dot) processWorker(job string) {
+func (d *Dot) processWorker(ctx context.Context, job string) {
 	jobData := DotData{}
 	err := jsoniter.Unmarshal([]byte(job), &jobData)
 	if err != nil {
@@ -62,24 +63,25 @@ func (d *Dot) processWorker(job string) {
 	doter, exists := doters[workerName]
 	if !exists {
 		log.Printf("[%s] Not find register [%s]:\n", jobData.Jid, workerName)
-		d.processJobError(jobData, nil)
+		d.processJobError(ctx, jobData, nil)
 	}
 	option, _ := options[workerName]
 
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[%s] Panic to retry error:%s\n", jobData.Jid, r)
-			d.processJobError(jobData, &option)
+			d.processJobError(ctx, jobData, &option)
 		}
 	}()
 	err = doter.Run(jobData.Args...)
 	if err != nil {
 		log.Printf("[%s] Error to retry error:%s\n", jobData.Jid, err)
-		d.processJobError(jobData, &option)
+		d.processJobError(ctx, jobData, &option)
 	}
+	//todo set success count
 }
 
-func (d *Dot) processJobError(jobData DotData, option *Doter) {
+func (d *Dot) processJobError(ctx context.Context, jobData DotData, option *Doter) {
 	retryCount := DefaultMaxRetry
 	retry := true
 	if option != nil && option.Retry {
@@ -95,11 +97,13 @@ func (d *Dot) processJobError(jobData DotData, option *Doter) {
 			jobData.SetRetryInfo()
 			enqueue, _ := jsoniter.Marshal(jobData)
 			log.Printf("[%s] Retry job at:[%d]\n", jobData.Jid, jobData.At)
-			d.retry.cache.TimeAdd(jobData.At, d.retry.queue.Name, string(enqueue))
+			d.retry.cache.TimeAdd(ctx, jobData.At, d.retry.queue.Name, string(enqueue))
 		} else {
+			//todo set dead job count
 			log.Printf("[%s] Dead job...\n", jobData.Jid)
 		}
 	} else {
+		//todo set dead job count
 		log.Printf("[%s] Dead job...\n", jobData.Jid)
 	}
 
@@ -121,7 +125,7 @@ type QueueJob struct {
 	stop       chan struct{}
 }
 
-func NewQueueJob(queues []Queue, cache DotCache, jobChan chan string) *QueueJob {
+func NewQueueJob(ctx context.Context, queues []Queue, cache DotCache, jobChan chan string) *QueueJob {
 	var queueNames []string
 	for _, q := range queues {
 		for i := 0; i < q.Weight; i++ {
@@ -131,7 +135,7 @@ func NewQueueJob(queues []Queue, cache DotCache, jobChan chan string) *QueueJob 
 	var stop = make(chan struct{})
 	var idl = make(chan bool)
 	qd := QueueJob{cache, queues, queueNames, idl, jobChan, stop}
-	qd.FetchJob()
+	qd.FetchJob(ctx)
 	return &qd
 }
 
@@ -157,7 +161,7 @@ func (q *QueueJob) Stop() {
 	close(q.stop)
 }
 
-func (q *QueueJob) FetchJob() {
+func (q *QueueJob) FetchJob(ctx context.Context) {
 	go func() {
 		for {
 			select {
@@ -166,7 +170,7 @@ func (q *QueueJob) FetchJob() {
 
 			default:
 				queue := RandQueue(q.queueNames)
-				job, err := q.cache.BlockPop(queue...)
+				job, err := q.cache.BlockPop(ctx, queue...)
 				if err == redis.Nil {
 					log.Printf("Fetch queue:%s job:[]\n", queue)
 				} else if err != nil {
@@ -189,14 +193,14 @@ type ScheduleJob struct {
 	quit  chan struct{}
 }
 
-func NewScheduleJob(queueName string, cache DotCache, jobChan chan string) *ScheduleJob {
+func NewScheduleJob(ctx context.Context, queueName string, cache DotCache, jobChan chan string) *ScheduleJob {
 	q := Queue{queueName, 1}
 	quit := make(chan struct{})
 	sd := ScheduleJob{cache: cache, queue: q, jobs: jobChan, quit: quit}
-	sd.FetchJob()
+	sd.FetchJob(ctx)
 	return &sd
 }
-func (s *ScheduleJob) FetchJob() {
+func (s *ScheduleJob) FetchJob(ctx context.Context) {
 	poll := PollInterval*rand.Intn(10) + PollInterval/2
 	ticker := time.NewTicker(time.Duration(poll) * time.Second)
 	quit := make(chan struct{})
@@ -204,7 +208,7 @@ func (s *ScheduleJob) FetchJob() {
 		for {
 			select {
 			case <-ticker.C:
-				s.fetchOnce()
+				s.fetchOnce(ctx)
 			case <-quit:
 				ticker.Stop()
 				return
@@ -213,8 +217,8 @@ func (s *ScheduleJob) FetchJob() {
 	}()
 }
 
-func (s *ScheduleJob) fetchOnce() {
-	jobs, err := s.cache.TimeQuery(s.queue.Name)
+func (s *ScheduleJob) fetchOnce(ctx context.Context) {
+	jobs, err := s.cache.TimeQuery(ctx, s.queue.Name)
 	if err != nil {
 		log.Println(err)
 	}
@@ -222,7 +226,7 @@ func (s *ScheduleJob) fetchOnce() {
 	for _, job := range jobs {
 		log.Println(job)
 		//if not ticker
-		_, err := s.cache.TimeRem(s.queue.Name, job)
+		_, err := s.cache.TimeRem(ctx, s.queue.Name, job)
 		if err == nil {
 			s.jobs <- job
 		}
@@ -241,17 +245,17 @@ type GoDot struct {
 	dot         *Dot
 }
 
-func NewGoDot(client *redis.Client, queues []Queue, maxDots int) *GoDot {
+func NewGoDot(ctx context.Context, client *redis.Client, queues []Queue, maxDots int) *GoDot {
 	cache := NewRedisCache(client)
 	jobs := make(chan string)
 
-	retryJob := NewScheduleJob(RetryQueue, cache, jobs)
-	scheduleJob := NewScheduleJob(ScheduleQueue, cache, jobs)
+	retryJob := NewScheduleJob(ctx, RetryQueue, cache, jobs)
+	scheduleJob := NewScheduleJob(ctx, ScheduleQueue, cache, jobs)
 
-	queueJob := NewQueueJob(queues, cache, jobs)
+	queueJob := NewQueueJob(ctx, queues, cache, jobs)
 
 	dots := NewDot(maxDots)
-	dots.WaitJob(jobs, retryJob)
+	dots.WaitJob(ctx, jobs, retryJob)
 
 	godot := GoDot{
 		cache:       cache,
@@ -300,7 +304,7 @@ func NewGoDotCli(client *redis.Client) *Client {
 
 }
 
-func (d *Client) Run(className string, args ...interface{}) {
+func (d *Client) Run(ctx context.Context, className string, args ...interface{}) {
 	runData, err := NewDotData(className)
 	if err != nil {
 		log.Println("Init run data error:", err)
@@ -310,10 +314,10 @@ func (d *Client) Run(className string, args ...interface{}) {
 	if err != nil {
 		log.Println("Enqueue json marshal retryJob:", err)
 	}
-	d.cache.Push(runData.Queue, string(enqueue))
+	d.cache.Push(ctx, runData.Queue, string(enqueue))
 }
 
-func (d *Client) RunAt(at int64, className string, args ...interface{}) {
+func (d *Client) RunAt(ctx context.Context, at int64, className string, args ...interface{}) {
 	runData, err := NewDotData(className)
 	if err != nil {
 		log.Println("Init run data error:", err)
@@ -324,5 +328,5 @@ func (d *Client) RunAt(at int64, className string, args ...interface{}) {
 	if err != nil {
 		log.Println("Enqueue json marshal retryJob:", err)
 	}
-	d.cache.TimeAdd(at, runData.Queue, string(enqueue))
+	d.cache.TimeAdd(ctx, at, runData.Queue, string(enqueue))
 }

@@ -1,6 +1,7 @@
 package godot
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -8,8 +9,8 @@ import (
 	"time"
 
 	"github.com/francoispqt/gojay"
-	"github.com/go-redis/redis/v7"
 	jsoniter "github.com/json-iterator/go"
+	"github.com/redis/go-redis/v9"
 )
 
 var queues = []Queue{
@@ -44,11 +45,12 @@ func TestDot(t *testing.T) {
 		Password: "", // no password set
 		DB:       0,  // use default DB
 	})
-	pong, err := client.Ping().Result()
+	ctx := context.Background()
+	pong, err := client.Ping(ctx).Result()
 	fmt.Println(pong, err)
 
 	t.Run("NewGoDot", func(t *testing.T) {
-		godot := NewGoDot(client, queues, 10)
+		godot := NewGoDot(ctx, client, queues, 10)
 
 		gdc := NewGoDotCli(client)
 		//d := NewTestJob(fmt.Sprintf("Job:%d", 1))
@@ -57,7 +59,7 @@ func TestDot(t *testing.T) {
 			//fmt.Println(d)
 			//d.RunAt(10,"test_at")
 			//godot.Run(d, "test", i)
-			gdc.Run("defaultDoter", "test_at")
+			gdc.Run(ctx, "defaultDoter", "test_at")
 			//if want, got := true, d.Execed; want == got {
 			//	t.Errorf("want %t got %t", want, got)
 			//}

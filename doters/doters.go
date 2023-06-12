@@ -1,20 +1,16 @@
-package load
+package doters
 
 import (
 	"fmt"
-	"log"
-	"time"
-
 	"github.com/easedot/godot"
+	"log"
 )
-
-var waits = make(map[int]int)
 
 const TestJob = "test_job"
 
 func init() {
 	options := godot.Doter{
-		Queue:      "default",
+		Queue:      "work1",
 		Retry:      true,
 		RetryCount: 2,
 	}
@@ -35,8 +31,8 @@ func (d testDoter) Run(args ...interface{}) error {
 	log.Println("[TestDoter] Run job args:", args)
 	index := int(args[0].(float64))
 
-	waits[index] += 1
-	time.Sleep(time.Second)
+	//time.Sleep(time.Second)
+
 	if (index % 2) == 1 {
 		return fmt.Errorf("[TestDoter] raise error for retry")
 	}

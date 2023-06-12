@@ -1,20 +1,22 @@
 package godot
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
 
-	"github.com/go-redis/redis/v7"
+	"github.com/redis/go-redis/v9"
 )
 
 func TestRedis(t *testing.T) {
+	ctx := context.Background()
 	var client = redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379",
 		Password: "", // no password set
 		DB:       0,  // use default DB
 	})
-	pong, err := client.Ping().Result()
+	pong, err := client.Ping(ctx).Result()
 	fmt.Println(pong, err)
 	cache := NewRedisCache(client)
 
@@ -30,7 +32,7 @@ func TestRedis(t *testing.T) {
 		fmt.Println("now", now)
 		after := time.Now().Add(spanAfter).Unix()
 		fmt.Println("after", after)
-		cache.TimeAdd(now, key, value)
+		cache.TimeAdd(ctx, now, key, value)
 
 		op := redis.ZRangeBy{
 			Min:    "-inf",
@@ -42,7 +44,7 @@ func TestRedis(t *testing.T) {
 		//fmt.Println(fmt.Sprintf("%s", r), r)
 
 		op.Max = fmt.Sprintf("%d", after)
-		f := client.ZRangeByScoreWithScores(key, &op).String()
+		f := client.ZRangeByScoreWithScores(ctx, key, &op).String()
 		fmt.Println(fmt.Sprintf("%s", f), err)
 	})
 }

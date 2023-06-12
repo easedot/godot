@@ -1,9 +1,10 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/easedot/godot"
-	"github.com/go-redis/redis/v7"
+	"github.com/redis/go-redis/v9"
 )
 
 func main() {
@@ -13,15 +14,16 @@ func main() {
 		Password: "", // no password set
 		DB:       0,  // use default DB
 	})
-	pong, err := client.Ping().Result()
+	ctx := context.Background()
+	pong, err := client.Ping(ctx).Result()
 	fmt.Println(pong, err)
 	gdc := godot.NewGoDotCli(client)
 	for i := 0; i < 100; i++ {
-		gdc.Run("defaultDoter", "test_at")
+		gdc.Run(ctx, "defaultDoter", "test_at")
 
-		//gdc.Run(load.TestJob, "test_at") //for test panic
+		//gdc.Run(doters.TestJob, "test_at") //for test panic
 
-		//gdc.Run(load.TestJob, i, fmt.Sprintf("task index:%d ", i), i)
+		//gdc.Run(ctx, doters.TestJob, i, fmt.Sprintf("task index:%d ", i), i)
 
 	}
 }

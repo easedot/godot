@@ -1,6 +1,7 @@
 package godot
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"time"
@@ -11,13 +12,13 @@ type Task interface {
 }
 
 type DotCache interface {
-	Push(key string, values interface{})
-	BulkPush(key string, values []interface{})
-	BlockPop(queue ...string) (string, error)
+	Push(ctx context.Context, key string, values interface{})
+	BulkPush(ctx context.Context, key string, values []interface{})
+	BlockPop(ctx context.Context, queue ...string) (string, error)
 
-	TimeAdd(time int64, key string, values interface{})
-	TimeQuery(queue string) ([]string, error)
-	TimeRem(queue, job string) (int64, error)
+	TimeAdd(ctx context.Context, time int64, key string, values interface{})
+	TimeQuery(ctx context.Context, queue string) ([]string, error)
+	TimeRem(ctx context.Context, queue, job string) (int64, error)
 }
 
 var doters = make(map[string]Task)
