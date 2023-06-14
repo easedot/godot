@@ -48,7 +48,28 @@ Step4
 
     open new termial run
     ./example_cli
-     
+
+Config
+---------------
+    //set queue weight
+	var queues = []godot.Queue{
+		{Name: "work1", Weight: 3},
+		{Name: "work2", Weight: 2},
+		{Name: "work3", Weight: 1},
+		{Name: "default", Weight: 1},
+	}
+
+    //set dots to 100
+    godotSRV := godot.NewGoDot(ctx, client, queues, 100)
+    
+    //set job option and register
+	options := Doter{
+		Queue:      "default",
+		Retry:      false,
+		RetryCount: 2,
+	}
+	doter := defaultDoter{options}
+	Register(doter, options)
 
 Performance
 ---------------

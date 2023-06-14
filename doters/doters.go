@@ -1,7 +1,6 @@
 package doters
 
 import (
-	"fmt"
 	"github.com/easedot/godot"
 	"log"
 )
@@ -29,12 +28,13 @@ type testDoter struct {
 
 func (d testDoter) Run(args ...interface{}) error {
 	log.Println("[TestDoter] Run job args:", args)
-	index := int(args[0].(float64))
 
 	//time.Sleep(time.Second)
 
-	if (index % 2) == 1 {
-		return fmt.Errorf("[TestDoter] raise error for retry")
-	}
+	//test for error retry
+	//index := int(args[0].(float64))
+	//if (index % 2) == 1 {
+	//	return fmt.Errorf("[TestDoter] raise error for retry")
+	//}
 	return nil
 }

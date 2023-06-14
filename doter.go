@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
+	"math/rand"
 	"time"
 )
 
@@ -95,7 +97,7 @@ func (d *DotData) SetRetryInfo() {
 	d.At = at
 }
 func (d *DotData) calcRetryTime(count int) int {
-	//span := int(math.Pow(float64(count), 4)) + 15 + (rand.Intn(30) * (count + 1))
-	span := 30 //int(math.Pow(float64(count), 2)) + 5
+	span := int(math.Pow(float64(count), 4)) + 15 + (rand.Intn(30) * (count + 1))
+	//span := 30 //int(math.Pow(float64(count), 2)) + 5
 	return span
 }
