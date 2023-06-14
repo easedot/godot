@@ -39,7 +39,7 @@ Step4
 
     go build example/example_cli.go
 
-Step4
+Step5
 
     docker-compose up -d
     
