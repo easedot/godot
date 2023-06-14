@@ -86,4 +86,4 @@ Please see [LICENSE.txt](https://github.com/easedot/godot/blob/master/LICENSE) f
 Author
 -----------------
 
-Haihui Jiang [@easedot](https//twitter.com/easedot)
+Haihui Jiang [@easedot](https://twitter.com/easedot)
