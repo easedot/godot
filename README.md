@@ -59,8 +59,8 @@ Config
 		{Name: "default", Weight: 1},
 	}
 
-    //set dots to 100
-    godotSRV := godot.NewGoDot(ctx, client, queues, 100)
+    //set dots to 1000 goroutine 
+    godotSRV := godot.NewGoDot(ctx, client, queues, 1000)
     
     //set job option and register
 	options := Doter{
