@@ -1,10 +1,5 @@
 package godot
 
-import (
-	"log"
-	"time"
-)
-
 func init() {
 	options := Doter{
 		Queue:      "default",
@@ -20,8 +15,8 @@ type defaultDoter struct {
 }
 
 func (d defaultDoter) Run(args ...interface{}) error {
-	log.Println("DefaultDoter dot run args:", args)
-	time.Sleep(time.Second)
-	log.Println("DefaultDoter dot done ...")
+	//log.Println("DefaultDoter dot run args:", args)
+	//time.Sleep(time.Second)
+	//log.Println("DefaultDoter dot done ...")
 	return nil
 }

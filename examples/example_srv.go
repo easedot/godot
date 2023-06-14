@@ -10,9 +10,9 @@ import (
 
 func main() {
 	var queues = []godot.Queue{
-		{Name: "work1", Weight: 3},
-		{Name: "work2", Weight: 2},
-		{Name: "work3", Weight: 1},
+		//{Name: "work1", Weight: 3},
+		//{Name: "work2", Weight: 2},
+		//{Name: "work3", Weight: 1},
 		{Name: "default", Weight: 1},
 	}
 	ctx := context.Background()
@@ -23,6 +23,6 @@ func main() {
 	})
 	pong, err := client.Ping(ctx).Result()
 	fmt.Println(pong, err)
-	godotSRV := godot.NewGoDot(ctx, client, queues, 100)
+	godotSRV := godot.NewGoDot(ctx, client, queues, 1000)
 	defer godotSRV.WaitJob()
 }

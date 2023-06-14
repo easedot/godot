@@ -18,7 +18,7 @@ func main() {
 	pong, err := client.Ping(ctx).Result()
 	fmt.Println(pong, err)
 	gdc := godot.NewGoDotCli(client)
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 50000; i++ {
 		gdc.Run(ctx, "defaultDoter", "test_at")
 
 		//gdc.Run(doters.TestJob, "test_at") //for test panic
