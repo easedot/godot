@@ -71,6 +71,10 @@ Config
 	doter := defaultDoter{options}
 	Register(doter, options)
 
+    client.Run(ctx, "defaultDoter", "test_at")
+    //or run after 1000ms
+    client.RunAt(ctx, 1000, "defaultDoter", "test_at")
+
 Performance
 ---------------
 

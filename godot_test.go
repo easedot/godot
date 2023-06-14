@@ -57,7 +57,7 @@ func TestDot(t *testing.T) {
 		//a := time.Now().Add(10 * time.Second).Unix()
 		for i := 0; i < 100; i++ {
 			//fmt.Println(d)
-			//d.RunAt(10,"test_at")
+			gdc.RunAt(ctx, 1000, "defaultDoter", "test_at")
 			//godot.Run(d, "test", i)
 			gdc.Run(ctx, "defaultDoter", "test_at")
 			//if want, got := true, d.Execed; want == got {
