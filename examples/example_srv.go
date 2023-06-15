@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"github.com/easedot/godot"
 	_ "github.com/easedot/godot/doters"
 	"github.com/redis/go-redis/v9"
+	"log"
 )
 
 func main() {
@@ -21,8 +21,10 @@ func main() {
 		Password: "", // no password set
 		DB:       0,  // use default DB
 	})
-	pong, err := client.Ping(ctx).Result()
-	fmt.Println(pong, err)
+	_, err := client.Ping(ctx).Result()
+	if err != nil {
+		log.Fatalf("Init redis error:%s", err)
+	}
 	godotSRV := godot.NewGoDot(ctx, client, queues, 1000)
 	defer godotSRV.WaitJob()
 }

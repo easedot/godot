@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"github.com/easedot/godot"
 	"github.com/redis/go-redis/v9"
+	"log"
 )
 
 func main() {
@@ -15,10 +15,12 @@ func main() {
 		DB:       0,  // use default DB
 	})
 	ctx := context.Background()
-	pong, err := client.Ping(ctx).Result()
-	fmt.Println(pong, err)
+	_, err := client.Ping(ctx).Result()
+	if err != nil {
+		log.Fatalf("Init redis error:%s", err)
+	}
 	gdc := godot.NewGoDotCli(client)
-	for i := 0; i < 50000; i++ {
+	for i := 0; i < 1000; i++ {
 		gdc.Run(ctx, "defaultDoter", "test_at")
 
 		//gdc.Run(doters.TestJob, "test_at") //for test panic
