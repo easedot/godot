@@ -2,10 +2,9 @@ package doters
 
 import (
 	"github.com/easedot/godot"
-	"log"
 )
 
-const TestJob = "test_job"
+const TestDoter = "test_doter"
 
 func init() {
 	options := godot.Doter{
@@ -19,7 +18,7 @@ func init() {
 	//godot.Register(doter, options)
 
 	//this register use const name
-	godot.RegisterByName(TestJob, doter, options)
+	godot.RegisterByName(TestDoter, doter, options)
 }
 
 type testDoter struct {
@@ -27,7 +26,7 @@ type testDoter struct {
 }
 
 func (d testDoter) Run(args ...interface{}) error {
-	log.Println("[TestDoter] Run job args:", args)
+	//log.Println("[TestDoter] Run job args:", args)
 
 	//time.Sleep(time.Second)
 

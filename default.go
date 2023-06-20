@@ -1,5 +1,9 @@
 package godot
 
+import "log"
+
+const DefaultDoter = "default_dot"
+
 func init() {
 	options := Doter{
 		Queue:      "default",
@@ -7,7 +11,7 @@ func init() {
 		RetryCount: 2,
 	}
 	doter := defaultDoter{options}
-	Register(doter, options)
+	RegisterByName(DefaultDoter, doter, options)
 }
 
 type defaultDoter struct {
@@ -15,7 +19,7 @@ type defaultDoter struct {
 }
 
 func (d defaultDoter) Run(args ...interface{}) error {
-	//log.Println("DefaultDoter dot run args:", args)
+	log.Println("DefaultDoter dot run args:", args)
 	//time.Sleep(time.Second)
 	//log.Println("DefaultDoter dot done ...")
 	return nil

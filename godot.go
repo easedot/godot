@@ -2,10 +2,12 @@ package godot
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"math/rand"
 	"os"
 	"os/signal"
+	"runtime"
 	"sync"
 	"time"
 
@@ -57,13 +59,14 @@ func (d *Dot) processWorker(ctx context.Context, job string) {
 	jobData := DotData{}
 	err := jsoniter.Unmarshal([]byte(job), &jobData)
 	if err != nil {
-		log.Println(err)
+		log.Printf("Unmarshal json err:%s\n", err)
 	}
 	workerName := jobData.Class
 	doter, exists := doters[workerName]
 	if !exists {
 		log.Printf("[%s] Not find register [%s]:\n", jobData.Jid, workerName)
 		d.processJobError(ctx, jobData, nil)
+		return
 	}
 	option, _ := options[workerName]
 
@@ -125,7 +128,7 @@ type QueueJob struct {
 	stop       chan struct{}
 }
 
-func NewQueueJob(ctx context.Context, queues []Queue, cache DotCache, jobChan chan string) *QueueJob {
+func NewQueueJob(ctx context.Context, queues []Queue, cache DotCache, jobChan chan string, maxFetch int) *QueueJob {
 	var queueNames []string
 	for _, q := range queues {
 		for i := 0; i < q.Weight; i++ {
@@ -135,7 +138,9 @@ func NewQueueJob(ctx context.Context, queues []Queue, cache DotCache, jobChan ch
 	var stop = make(chan struct{})
 	var idl = make(chan bool)
 	qd := QueueJob{cache, queues, queueNames, idl, jobChan, stop}
-	qd.FetchJob(ctx)
+	for i := 0; i < maxFetch; i++ {
+		qd.FetchJob(ctx)
+	}
 	return &qd
 }
 
@@ -157,7 +162,7 @@ func (q *QueueJob) IsStop() bool {
 
 }
 func (q *QueueJob) Stop() {
-	log.Println("Stop fetch job from:", q.queueNames)
+	log.Printf("Stop fetch job from:%s\n", q.queueNames)
 	close(q.stop)
 }
 
@@ -172,7 +177,7 @@ func (q *QueueJob) FetchJob(ctx context.Context) {
 				queue := RandQueue(q.queueNames)
 				job, err := q.cache.BlockPop(ctx, queue...)
 				if err == redis.Nil {
-					log.Printf("Fetch queue:%s job:[]\n", queue)
+					//log.Printf("Fetch queue:%s job:[]\n", queue)
 				} else if err != nil {
 					log.Printf("Fetch queue:%s error:[%s]\n ", queue, err)
 					q.idl <- true
@@ -220,11 +225,10 @@ func (s *ScheduleJob) FetchJob(ctx context.Context) {
 func (s *ScheduleJob) fetchOnce(ctx context.Context) {
 	jobs, err := s.cache.TimeQuery(ctx, s.queue.Name)
 	if err != nil {
-		log.Println(err)
+		log.Printf("Fetch error:%s\n", err)
 	}
-	log.Printf("Fetch queue:[%s] job:%s \n", s.queue.Name, jobs)
+	log.Printf("Fetch queue:[%s] job:%s\n", s.queue.Name, jobs)
 	for _, job := range jobs {
-		log.Println(job)
 		//if not ticker
 		_, err := s.cache.TimeRem(ctx, s.queue.Name, job)
 		if err == nil {
@@ -245,16 +249,18 @@ type GoDot struct {
 	dot         *Dot
 }
 
-func NewGoDot(ctx context.Context, client *redis.Client, queues []Queue, maxDots int) *GoDot {
+func NewGoDot(ctx context.Context, client *redis.Client, queues []Queue, maxRedisCnn int) *GoDot {
 	cache := NewRedisCache(client)
 	jobs := make(chan string)
 
 	retryJob := NewScheduleJob(ctx, RetryQueue, cache, jobs)
 	scheduleJob := NewScheduleJob(ctx, ScheduleQueue, cache, jobs)
 
-	queueJob := NewQueueJob(ctx, queues, cache, jobs)
+	const OtherCnn = 2
+	queueJob := NewQueueJob(ctx, queues, cache, jobs, maxRedisCnn-OtherCnn)
 
-	dots := NewDot(maxDots)
+	const DotsPerCnn = 50
+	dots := NewDot(maxRedisCnn * DotsPerCnn)
 	dots.WaitJob(ctx, jobs, retryJob)
 
 	godot := GoDot{
@@ -264,6 +270,16 @@ func NewGoDot(ctx context.Context, client *redis.Client, queues []Queue, maxDots
 		scheduleJob: scheduleJob,
 		dot:         dots,
 	}
+
+	//display info
+	go func() {
+		dt := time.NewTicker(time.Second * 10)
+		for range dt.C {
+			fmt.Printf("RedisCnn:%d Routines:%d\n", client.PoolStats().TotalConns, runtime.NumGoroutine())
+		}
+		defer dt.Stop()
+	}()
+
 	return &godot
 }
 

@@ -81,6 +81,12 @@ Todo
 
 Performance
 ---------------
+    Macbook M1 Pro 单机  
+    启动10个进程,170秒产生50万job 
+    ./example_cli -m 50000
+
+    单进程 2000个链接 50万空Job 30秒消费完
+    ./example_srv -m 2000
 
 License
 -----------------
