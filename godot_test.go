@@ -50,7 +50,7 @@ func TestDot(t *testing.T) {
 	fmt.Println(pong, err)
 
 	t.Run("NewGoDot", func(t *testing.T) {
-		godot := NewGoDot(ctx, client, queues, 10)
+		godot := NewGoDot(ctx, client, queues, 10, 6698)
 
 		gdc := NewGoDotCli(client)
 		//d := NewTestJob(fmt.Sprintf("Job:%d", 1))

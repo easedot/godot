@@ -5,7 +5,7 @@ Simple, efficient background processing for Go.
 Godot uses go routine to handle many jobs at the same time in the
 same process
 
-![Web UI](https://github.com/easedot/godot/blob/master/godot.png)
+![Web UI](https://github.com/easedot/godot/blob/master/assets/godot.png)
 
 Requirements
 -----------------
@@ -60,7 +60,7 @@ Config
 	}
 
     //set dots to 1000 goroutine 
-    godotSRV := godot.NewGoDot(ctx, client, queues, 1000)
+    godotSRV := godot.NewGoDot(ctx, client, queues, 50, 6698)
     
     //set job option and register
 	options := Doter{
@@ -77,12 +77,13 @@ Config
 
 Todo
 ---------------
-    dashboard
+    dashboard localhost:6698
+![Web UI](https://github.com/easedot/godot/blob/master/assets/dashboard.jpg)
 
 Performance
 ---------------
     Macbook M1 Pro 单机  
-    启动10个进程,170秒产生50万job 
+    启动10个进程,1m27s 产生50万job 
     ./example_cli -m 50000
 
     单进程 2000个链接 50万空Job 30秒消费完

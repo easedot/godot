@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="refresh" content="4" />
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.2/dist/echarts.min.js"></script>
+</head>
+<body>
+    {{range $k,$v:= .Charts}}
+    <div id="{{.Name}}" style="width: 100%;height:{{$v.Height}};"></div>
+    <script type="text/javascript">
+        var chart = echarts.init(document.getElementById('{{$v.Name}}'));
+
+        var option = {
+            animation: false,
+            title: {
+                text: {{$v.Title}}
+        },
+        legend: {
+            data: {{$v.Legend}}
+        },
+        tooltip: {
+            trigger: 'axis'
+        },
+        xAxis: {
+            type: 'category',
+                data:{{$v.Labels}}
+        },
+        yAxis: {
+            type: 'value'
+        },
+        series: {{$v.Series}}
+        };
+
+        // 使用刚指定的配置项和数据显示图表。
+        chart.setOption(option);
+
+    </script>
+    {{end}}
+
+    <div style="margin: auto;width: 25%;padding: 5px;border: 1px solid darkred;">
+        <span>Goroutines:</span>
+        <span>{{.Goroutines}}</span>
+        <span>Success:</span>
+        <span>{{.Success}}</span>
+        <span>Dead:</span>
+        <span>{{.Dead}}</span>
+    </div>
+    <div>
+
+    </div>
+</body>
+</html>

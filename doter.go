@@ -14,13 +14,24 @@ type Task interface {
 }
 
 type DotCache interface {
-	Push(ctx context.Context, key string, values interface{})
-	BulkPush(ctx context.Context, key string, values []interface{})
-	BlockPop(ctx context.Context, queue ...string) (string, error)
+	RPop(ctx context.Context, key string) (string, error)
+	LPop(ctx context.Context, key string) (string, error)
+	LTrim(ctx context.Context, key string, start, stop int64) (string, error)
+	LIndex(ctx context.Context, key string, index int64) (string, error)
+	LRange(ctx context.Context, key string, start, stop int64) ([]string, error)
+	LPush(ctx context.Context, key string, values interface{})
+	RPush(ctx context.Context, key string, values interface{})
+	BulkLPush(ctx context.Context, key string, values []interface{})
+	BlockRPop(ctx context.Context, queue ...string) (string, error)
 
 	TimeAdd(ctx context.Context, time int64, key string, values interface{})
 	TimeQuery(ctx context.Context, queue string) ([]string, error)
 	TimeRem(ctx context.Context, queue, job string) (int64, error)
+	HGet(ctx context.Context, hash, key string) (string, error)
+	HGetAll(ctx context.Context, hash string) (map[string]string, error)
+	HSet(ctx context.Context, hash string, value ...interface{}) error
+	HIncrBy(ctx context.Context, hash, key string, incValue int64) error
+	LLen(ctx context.Context, key string) (int64, error)
 }
 
 var doters = make(map[string]Task)

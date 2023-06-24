@@ -34,7 +34,7 @@ func main() {
 		log.Fatalf("Init redis error:%s", err)
 	}
 
-	godotSRV := godot.NewGoDot(ctx, client, queues, *mr)
+	godotSRV := godot.NewGoDot(ctx, client, queues, *mr, 6698)
 
 	defer godotSRV.WaitJob()
 }

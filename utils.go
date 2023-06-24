@@ -4,8 +4,10 @@ import (
 	crand "crypto/rand"
 	"fmt"
 	"io"
+	"log"
 	"math/rand"
 	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -63,4 +65,55 @@ func googleJid() string {
 func googleJidV2() string {
 	id := uuid.New()
 	return id.String()
+}
+
+func trace(msg string) func() {
+	start := time.Now()
+	//log.Printf("enter %s", msg)
+	return func() { log.Printf("exit %s (%s)", msg, time.Since(start)) }
+}
+
+func sum(lv []string) int {
+	lvl := len(lv)
+	ms := 0
+	for k := 0; k < lvl; k++ {
+		if v, err := strconv.Atoi(lv[k]); err == nil {
+			ms += v
+		} else {
+			log.Printf("Atoi error %s", err)
+		}
+	}
+	v := ms
+	return v
+}
+func avg(lv []string) int {
+	lvl := len(lv)
+	ms := sum(lv)
+	v := ms / lvl
+	return v
+}
+
+func max(lv []string) int {
+	lvl := len(lv)
+	m := 0
+	for k := 0; k < lvl; k++ {
+		if v, err := strconv.Atoi(lv[k]); err == nil {
+			if v > m {
+				m = v
+			}
+		} else {
+			log.Printf("Atoi error %s", err)
+		}
+	}
+	v := m
+	return v
+}
+
+func spinner(delay time.Duration) {
+	for {
+		for _, r := range `-\|/` {
+			fmt.Printf("\r%c", r)
+			time.Sleep(delay)
+		}
+	}
 }

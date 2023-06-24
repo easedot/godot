@@ -27,7 +27,11 @@ func main() {
 		log.Fatalf("Init redis error:%s", err)
 	}
 	gdc := godot.NewGoDotCli(client)
-	start := time.Now()
+	putJobs(ctx, gdc)
+}
+
+func putJobs(ctx context.Context, gdc *godot.Client) {
+	defer trace("Put jobs")()
 	for i := 0; i < *mj; i++ {
 		//gdc.Run(ctx, godot.DefaultDoter, "test_at")
 
@@ -36,5 +40,10 @@ func main() {
 		//gdc.Run(ctx, doters.TestJob, i, fmt.Sprintf("task index:%d ", i), i)
 
 	}
-	log.Printf("Span(s):%f", time.Now().Sub(start).Seconds())
+}
+
+func trace(msg string) func() {
+	start := time.Now()
+	log.Printf("enter %s", msg)
+	return func() { log.Printf("exit %s (%s)", msg, time.Since(start)) }
 }
