@@ -39,14 +39,15 @@ Step4
     go build example/example_cli.go
 
 Step5
-
+    
+    open new termial run
     docker-compose up -d
     
     open new termial run     
-    ./example_srv
+    ./example_srv -m 50
 
     open new termial run
-    ./example_cli
+    ./example_cli -m 5000
 
 Config
 ---------------
