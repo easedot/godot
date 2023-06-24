@@ -2,9 +2,8 @@ Godot
 ==============
 Simple, efficient background processing for Go.
 
-Godot uses go routine to handle many jobs at the same time in the
-same process
-
+    Godot uses go routine to handle many jobs at the same time in the
+    same process
 ![Web UI](https://github.com/easedot/godot/blob/master/assets/godot.png)
 
 Requirements
@@ -82,11 +81,11 @@ Todo
 
 Performance
 ---------------
-    Macbook M1 Pro 单机  
-    启动10个进程,1m27s 产生50万job 
+    Macbook M1 Pro  
+    10 process 1m27s put 500000 jobs 
     ./example_cli -m 50000
 
-    单进程 2000个链接 50万空Job 30秒消费完
+    one server, 2000 redis conn, 30s done.
     ./example_srv -m 2000
 
 License
