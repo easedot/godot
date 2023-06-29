@@ -54,8 +54,6 @@ func NewDot(maxDots int, stats *Stats) *Dot {
 }
 
 func (d *Dot) WaitJob(ctx context.Context, jobChan chan string, retry *ScheduleJob) {
-	//d.jobs = make(chan Task, d.maxDots)
-	//无缓冲通道安全，没有响应的阻塞不会丢失
 	d.jobs = jobChan //make(chan string)
 	d.retry = retry
 	d.wg.Add(d.maxDots)
